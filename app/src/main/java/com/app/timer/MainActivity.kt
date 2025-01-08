@@ -158,6 +158,8 @@ class MainActivity : AppCompatActivity() {
                 tvTimerValueAfterStop.visibility = View.GONE
                 tvTimerValue.visibility = View.VISIBLE
                 tvTimerValue.text = viewModel.formatTime(etTimerValue.text.toString().toInt() * 60)
+            } else {
+                Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
             }
         }
     }
