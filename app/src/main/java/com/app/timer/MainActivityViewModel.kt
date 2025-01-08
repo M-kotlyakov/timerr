@@ -25,6 +25,7 @@ class MainActivityViewModel : ViewModel() {
     private val _backgroundColor = MutableStateFlow(android.graphics.Color.WHITE)
     val backgroundColor: StateFlow<Int> = _backgroundColor
 
+    // метод для начала старта таймера, куда отправляются количество минут
     fun startTimer(totalMinutes: Int) {
         val totalSeconds = totalMinutes * 60
         totalTime = totalSeconds
@@ -34,6 +35,8 @@ class MainActivityViewModel : ViewModel() {
         val thirdTime = 1 * total
         stopFlag = false
 
+        // запускаем параллельно два таймера
+        // отсчет общего таймера
         viewModelScope.launch {
             for (remainingTime in totalSeconds downTo  0) {
                 if (stopFlag) return@launch
@@ -45,16 +48,18 @@ class MainActivityViewModel : ViewModel() {
                 }
                 _timeLeft.value = formatTime(remainingTime)
                 leftValue = formatTime(totalSeconds - remainingTime)
-                delay(1000)
+                delay(1000) // задержка в 1 секунду
             }
             _backgroundColor.value = 10
         }
 
+        // отсчет таймера определенного этапа
         viewModelScope.launch {
             startStageTimer(firstTime, secondTime, thirdTime)
         }
     }
 
+    // метод, который запускает таймер для определенного этапа
     private suspend fun startStageTimer(firstTime: Int, secondTime: Int, thirdTime: Int) {
         val stages = listOf(firstTime, secondTime, thirdTime)
         for (stage in stages) {
@@ -67,20 +72,14 @@ class MainActivityViewModel : ViewModel() {
         }
     }
 
-    private suspend fun startCurrentStateTimer(seconds: Int) {
-        for (time in seconds downTo 0) {
-            if (stopFlag) return
-            _currentTimer.value = "Текущее время этапа ${formatTime(time)}"
-            delay(1000) // Задержка в 1 секунду
-        }
-    }
-
+    // форматируем таймер в удобный вид 10:00
     fun formatTime(seconds: Int): String {
         val minutes = seconds / 60
         val secs = seconds % 60
         return String.format("%02d:%02d", minutes, secs)
     }
 
+    // форматируем данные из вида 10:00 в обычное число
     fun convertTimeToSeconds(timeString: String): Int {
         // Разделение строки по символу ":"
         val parts = timeString.split(":")
@@ -98,6 +97,7 @@ class MainActivityViewModel : ViewModel() {
         return minutes * 60 + seconds
     }
 
+    // метод для остановки таймера
     fun stopTimer() {
         viewModelScope.launch {
             stopFlag = true
