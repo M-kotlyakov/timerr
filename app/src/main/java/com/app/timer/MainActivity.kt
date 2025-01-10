@@ -32,9 +32,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        initViewModel() //
+        initViewModel()
         setupClickListener()
         saveInputtedText()
+        saveCriticalInputtedText()
         observeTimer()
         observeColorScreenState()
         observeCurrentState()
@@ -44,9 +45,13 @@ class MainActivity : AppCompatActivity() {
     // Обрабатываем нажатие ни кнопку начала старта
     private fun setupClickListener() = with(binding) {
         imageBtnTimer.setOnClickListener {
-            // Провекра, чтобы при повторном запуске таймера высвечивалось сообщение,
+            // Проверка, чтобы при повторном запуске таймера высвечивалось сообщение,
             // что сначала нужно сохранить введеное значение
-            if (tvTimerValueAfterStop.visibility == View.VISIBLE && etTimerValue.text.isNotEmpty()) {
+            if (
+                tvTimerValueAfterStop.visibility == View.VISIBLE
+                    && etTimerValue.text.isNotEmpty()
+                    && etCruicialTimerValue.text.isNotEmpty()
+            ) {
                 Toast.makeText(this@MainActivity, "Сохраните время таймера", Toast.LENGTH_SHORT).show()
             } else {
                 tvTimerValueAfterStop.visibility = View.GONE // скрываем надпись с прошедшим времени при нажатии на старт таймера
@@ -55,12 +60,15 @@ class MainActivity : AppCompatActivity() {
                     // Если stateTimer == true, тогда убираем с экрана форму ввода данных и кнопку
                     // и запускаем таймер
                     val timeInSeconds = etTimerValue.text.toString().toIntOrNull()
-                    if (timeInSeconds != null && timeInSeconds > 0) { // смотрим, если есть допустимое время для таймера
+                    val criticalTimeInSeconds = etCruicialTimerValue.text.toString().toIntOrNull()
+                    if (timeInSeconds != null && criticalTimeInSeconds != null && timeInSeconds > 0) { // смотрим, если есть допустимое время для таймера
                         tvCurrentTimeState.visibility = View.VISIBLE
                         etTimerValue.visibility = View.GONE
+                        etCruicialTimerValue.visibility = View.GONE
                         saveTextBtn.visibility = View.GONE
+                        saveCruicialTextBtn.visibility = View.GONE
                         imageBtnTimer.setImageResource(R.drawable.ic_stop_button)
-                        viewModel.startTimer(timeInSeconds)
+                        viewModel.startTimer(timeInSeconds, criticalTimeInSeconds)
                     } else {
                         // Высвечиваем сообщение, что полльзователь ввел время таймера, потому что оно либо пустое, либо равно 0
                         Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
@@ -69,7 +77,9 @@ class MainActivity : AppCompatActivity() {
                     // Если stateTimer == false, тогда таймер закончился и показываем форму для ввода данных
                     // меняем иконку кнопки и останавливаем таймер
                     etTimerValue.visibility = View.VISIBLE
+                    etCruicialTimerValue.visibility = View.VISIBLE
                     saveTextBtn.visibility = View.VISIBLE
+                    saveCruicialTextBtn.visibility = View.VISIBLE
                     imageBtnTimer.setImageResource(R.drawable.ic_play_button)
                     tvCurrentTimeState.visibility = View.GONE
                     viewModel.stopTimer()
@@ -89,8 +99,11 @@ class MainActivity : AppCompatActivity() {
                         if (timer == "00:00") {
                             imageBtnTimer.setImageResource(R.drawable.ic_play_button)
                             etTimerValue.visibility = View.VISIBLE
+                            etCruicialTimerValue.visibility = View.VISIBLE
                             saveTextBtn.visibility = View.VISIBLE
+                            saveCruicialTextBtn.visibility = View.VISIBLE
                             tvTimerValue.visibility = View.GONE
+                            tvCruicialTimerValue.visibility = View.GONE
                             tvTimerValueAfterStop.visibility = View.VISIBLE
                             tvCurrentTimeState.visibility = View.GONE
                         }
@@ -127,7 +140,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // методж, отвечает за фон экрана при работающем таймере
+    // метод, отвечает за фон экрана при работающем таймере
     private fun observeColorScreenState() {
         lifecycleScope.launch {
             this@MainActivity.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -135,8 +148,20 @@ class MainActivity : AppCompatActivity() {
                     val backgroundColor = when (colorInt) {
                         0 -> Color.GREEN
                         1 -> Color.YELLOW
-                        2 -> Color.RED
+                        2 -> Color.RED // во вью модели должно отправляться с критического времени
                         else -> Color.WHITE
+                    }
+
+                    if (
+                        backgroundColor == Color.WHITE
+                            && binding.etTimerValue.text.isNotEmpty()
+                            && binding.etCruicialTimerValue.text.isNotEmpty()
+                    ) {
+                        binding.tvTimerValueAfterStop.text = "Прошедшее время ${viewModel.formatTime(binding.etTimerValue.text.toString().toInt() * 60)}"
+                    }
+
+                    if (backgroundColor == Color.RED) {
+                        binding.tvCruicialTimerValue.visibility = View.GONE
                     }
                     binding.main.setBackgroundColor(backgroundColor)
                 }
@@ -160,6 +185,30 @@ class MainActivity : AppCompatActivity() {
                 tvTimerValue.text = viewModel.formatTime(etTimerValue.text.toString().toInt() * 60)
             } else {
                 Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // метод обрабатывает нажатие кнопки "Сохранить", когда вводим критическое время
+    private fun saveCriticalInputtedText() = with(binding) {
+        saveCruicialTextBtn.setOnClickListener {
+            if (etCruicialTimerValue.text.isNotEmpty()) {
+                if (etCruicialTimerValue.text.toString().toInt() >= etTimerValue.text.toString().toInt()) {
+                    Toast.makeText(this@MainActivity, "Критическое время должно быть меньше времени таймера", Toast.LENGTH_SHORT).show()
+                } else {
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    // Получаем текущее фокусированное представление
+                    val view = currentFocus
+                    // Если есть текущее фокусированное представление, скрываем клавиатуру
+                    view?.let {
+                        imm.hideSoftInputFromWindow(it.windowToken, 0) // скрываем клавиатуру при нажатии на кнопку "Сохранить"
+                    }
+                    tvTimerValueAfterStop.visibility = View.GONE
+                    tvCruicialTimerValue.visibility = View.VISIBLE
+                    tvCruicialTimerValue.text = viewModel.formatTime(etCruicialTimerValue.text.toString().toInt() * 60)
+                }
+            } else {
+                Toast.makeText(this@MainActivity, "Введите критическое время", Toast.LENGTH_SHORT).show()
             }
         }
     }

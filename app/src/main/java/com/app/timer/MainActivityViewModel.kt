@@ -26,13 +26,12 @@ class MainActivityViewModel : ViewModel() {
     val backgroundColor: StateFlow<Int> = _backgroundColor
 
     // метод для начала старта таймера, куда отправляются количество минут
-    fun startTimer(totalMinutes: Int) {
+    fun startTimer(totalMinutes: Int, criticalTimeInSeconds: Int) {
         val totalSeconds = totalMinutes * 60
         totalTime = totalSeconds
-        val total = totalSeconds / 6
-        val firstTime = 3 * total
-        val secondTime = 2 * total
-        val thirdTime = 1 * total
+        val firstTime = totalSeconds
+        val secondTime = totalSeconds / 2
+        val thirdTime = criticalTimeInSeconds * 60
         stopFlag = false
 
         // запускаем параллельно два таймера
@@ -41,9 +40,9 @@ class MainActivityViewModel : ViewModel() {
             for (remainingTime in totalSeconds downTo  0) {
                 if (stopFlag) return@launch
                 when {
-                    remainingTime > firstTime -> _backgroundColor.value = 0
-                    remainingTime in (secondTime + 1)..< firstTime -> _backgroundColor.value = 1
-                    remainingTime in 2..< thirdTime -> _backgroundColor.value = 2
+                    remainingTime in (secondTime + 1)..firstTime -> _backgroundColor.value = 0
+                    remainingTime in (thirdTime + 1) ..< secondTime -> _backgroundColor.value = 1
+                    remainingTime in 0..thirdTime -> _backgroundColor.value = 2
                     else -> 3
                 }
                 _timeLeft.value = formatTime(remainingTime)
