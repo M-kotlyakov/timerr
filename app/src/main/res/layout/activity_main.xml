@@ -31,8 +31,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="10dp"
                 android:layout_weight="1"
-                android:inputType="number"
-                android:hint="Время таймера"
+                android:inputType="time"
+                android:hint="Таймер 00:00"
                 android:maxLines="1" />
 
             <Button
@@ -58,8 +58,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="10dp"
                 android:layout_weight="1"
-                android:inputType="number"
-                android:hint="Критическое время"
+                android:inputType="time"
+                android:hint="Крит. время 00:00"
                 android:maxLines="1" />
 
             <Button

@@ -3,8 +3,11 @@ package com.app.timer
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -49,8 +52,7 @@ class MainActivity : AppCompatActivity() {
             // что сначала нужно сохранить введеное значение
             if (
                 tvTimerValueAfterStop.visibility == View.VISIBLE
-                    && etTimerValue.text.isNotEmpty()
-                    && etCruicialTimerValue.text.isNotEmpty()
+                    && etTimerValue.text.isNotEmpty() && etCruicialTimerValue.text.isNotEmpty()
             ) {
                 Toast.makeText(this@MainActivity, "Сохраните время таймера", Toast.LENGTH_SHORT).show()
             } else {
@@ -59,20 +61,28 @@ class MainActivity : AppCompatActivity() {
                 if (stateTimer) {
                     // Если stateTimer == true, тогда убираем с экрана форму ввода данных и кнопку
                     // и запускаем таймер
-                    val timeInSeconds = etTimerValue.text.toString().toIntOrNull()
-                    val criticalTimeInSeconds = etCruicialTimerValue.text.toString().toIntOrNull()
-                    if (timeInSeconds != null && criticalTimeInSeconds != null && timeInSeconds > 0) { // смотрим, если есть допустимое время для таймера
-                        tvCurrentTimeState.visibility = View.VISIBLE
-                        etTimerValue.visibility = View.GONE
-                        etCruicialTimerValue.visibility = View.GONE
-                        saveTextBtn.visibility = View.GONE
-                        saveCruicialTextBtn.visibility = View.GONE
-                        imageBtnTimer.setImageResource(R.drawable.ic_stop_button)
-                        viewModel.startTimer(timeInSeconds, criticalTimeInSeconds)
+                    if (!isValidTimeFormat(etTimerValue.text.toString()) && !isValidTimeFormat(etCruicialTimerValue.text.toString())) {
+                        Toast.makeText(this@MainActivity, "Неверный формат времени. Используйте HH:mm", Toast.LENGTH_SHORT).show()
                     } else {
-                        // Высвечиваем сообщение, что полльзователь ввел время таймера, потому что оно либо пустое, либо равно 0
-                        Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
+                        val timeInSeconds = convertTimeToSeconds(etTimerValue.text.toString()) / 60
+                        val criticalTimeInSeconds = convertTimeToSeconds(etCruicialTimerValue.text.toString()) / 60
+
+                        if (convertTimeToSeconds(etTimerValue.text.toString()) > 0) { // смотрим, если есть допустимое время для таймера
+                            tvCurrentTimeState.visibility = View.VISIBLE
+                            etTimerValue.visibility = View.GONE
+                            etCruicialTimerValue.visibility = View.GONE
+                            saveTextBtn.visibility = View.GONE
+                            saveCruicialTextBtn.visibility = View.GONE
+                            imageBtnTimer.setImageResource(R.drawable.ic_stop_button)
+                            tvCruicialTimerValue.visibility = View.VISIBLE
+                            tvTimerValue.visibility = View.VISIBLE
+                            viewModel.startTimer(timeInSeconds, criticalTimeInSeconds)
+                        } else {
+                            // Высвечиваем сообщение, что пользователь ввел время таймера, потому что оно либо пустое, либо равно 0
+                            Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
+                        }
                     }
+
                 } else {
                     // Если stateTimer == false, тогда таймер закончился и показываем форму для ввода данных
                     // меняем иконку кнопки и останавливаем таймер
@@ -82,6 +92,7 @@ class MainActivity : AppCompatActivity() {
                     saveCruicialTextBtn.visibility = View.VISIBLE
                     imageBtnTimer.setImageResource(R.drawable.ic_play_button)
                     tvCurrentTimeState.visibility = View.GONE
+//                    tvCruicialTimerValue.visibility = View.GONE
                     viewModel.stopTimer()
                 }
             }
@@ -157,7 +168,7 @@ class MainActivity : AppCompatActivity() {
                             && binding.etTimerValue.text.isNotEmpty()
                             && binding.etCruicialTimerValue.text.isNotEmpty()
                     ) {
-                        binding.tvTimerValueAfterStop.text = "Прошедшее время ${viewModel.formatTime(binding.etTimerValue.text.toString().toInt() * 60)}"
+                        binding.tvTimerValueAfterStop.text = "Прошедшее время ${binding.etTimerValue.text}"
                     }
 
                     if (backgroundColor == Color.RED) {
@@ -172,7 +183,7 @@ class MainActivity : AppCompatActivity() {
     // метод облрабатывает нажатие кнопки "Сохранить", когда вводим количество минут
     private fun saveInputtedText() = with(binding) {
         saveTextBtn.setOnClickListener {
-            if (etTimerValue.text.isNotEmpty()) {
+            if (etTimerValue.text.isNotEmpty() && isValidTimeFormat(etTimerValue.text.toString())) {
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                 // Получаем текущее фокусированное представление
                 val view = currentFocus
@@ -182,9 +193,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 tvTimerValueAfterStop.visibility = View.GONE
                 tvTimerValue.visibility = View.VISIBLE
-                tvTimerValue.text = viewModel.formatTime(etTimerValue.text.toString().toInt() * 60)
+                tvTimerValue.text = etTimerValue.text.toString() /*viewModel.formatTime(etTimerValue.text.toString().toInt() * 60)*/
             } else {
-                Toast.makeText(this@MainActivity, "Введите время таймера", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Введите время таймера корректно", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -192,8 +203,8 @@ class MainActivity : AppCompatActivity() {
     // метод обрабатывает нажатие кнопки "Сохранить", когда вводим критическое время
     private fun saveCriticalInputtedText() = with(binding) {
         saveCruicialTextBtn.setOnClickListener {
-            if (etCruicialTimerValue.text.isNotEmpty()) {
-                if (etCruicialTimerValue.text.toString().toInt() >= etTimerValue.text.toString().toInt()) {
+            if (etCruicialTimerValue.text.isNotEmpty() && isValidTimeFormat(etCruicialTimerValue.text.toString())) {
+                if (convertTimeToSeconds(etCruicialTimerValue.text.toString()) >= convertTimeToSeconds(etTimerValue.text.toString())) {
                     Toast.makeText(this@MainActivity, "Критическое время должно быть меньше времени таймера", Toast.LENGTH_SHORT).show()
                 } else {
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -205,12 +216,28 @@ class MainActivity : AppCompatActivity() {
                     }
                     tvTimerValueAfterStop.visibility = View.GONE
                     tvCruicialTimerValue.visibility = View.VISIBLE
-                    tvCruicialTimerValue.text = viewModel.formatTime(etCruicialTimerValue.text.toString().toInt() * 60)
+                    tvCruicialTimerValue.text = etCruicialTimerValue.text.toString() /*viewModel.formatTime(etCruicialTimerValue.text.toString().toInt() * 60)*/
                 }
             } else {
-                Toast.makeText(this@MainActivity, "Введите критическое время", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Введите критическое время корректно", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun convertTimeToSeconds(time: String): Int {
+        // Разделяем время на часы и минуты
+        val parts = time.split(":")
+        val hours = parts[0].toInt() // Часы
+        val minutes = parts[1].toInt()// Минуты
+
+        // Конвертируем в секунды
+        return (hours * 3600) + (minutes * 60)
+    }
+
+    private fun isValidTimeFormat(time: String): Boolean {
+        // Регулярное выражение для формата HH:mm
+        val regex = Regex("^(?:[01]\\d|2[0-3]):[0-5]\\d$")
+        return regex.matches(time)
     }
 
     // метод для инициализации класса MainActivityViewModel
